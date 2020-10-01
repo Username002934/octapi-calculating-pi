@@ -1,59 +1,57 @@
-# This computes the value of Pi using the 'dartboard' algorithm. This is 
-# a Monte Carlo method using many trials to estimate the area of a 
-# quarter circle inside a unit square.
+# Esto calcula el valor de Pi usando el algoritmo de la "diana". Este es un método de Monte Carlo
+# que utiliza muchas pruebas para estimar el área de un cuarto de círculo dentro de una unidad cuadrada.
 #
-# This code uses Dispy on OctaPi using the recommended method for managing
-# jobs efficiently. For more information, visit the Dispy website. 
+# Este código utiliza Dispy on OctaPi usando el método recomendado para manejar 
+# los trabajos de manera eficiente. Para más información, visite la página web de Dispy. 
 #
-# Reference: Arndt & Haenel, "Pi Uneashed", Springer-Verlag, 
+# Referencia: Arndt & Haenel, "Pi Uneashed", Springer-Verlag, 
 # ISBN 978-3-540-66572-4, 2006, 
-# English translation Catriona and David Lischka, pp. 39-41
 
 # Dispy:
-# Giridhar Pemmasani, "dispy: Distributed and parallel Computing with/for Python",
+# Giridhar Pemmasani, "dispy": Computación distribuida y paralela con/para Python",
 # http://dispy.sourceforge.net, 2016
 
-# All other original code: Crown Copyright 2016, 2017 
+# Todos los demás códigos originales: Crown Copyright 2016, 2017 
 
-# 'compute' is distributed to each node running 'dispynode'
+# El "cómputo" se distribuye a cada nodo que ejecuta el "disipnodo".
 def compute(s, n):
     import time, random
 
     inside = 0
 
-    # set the random seed on the server from that passed by the client
+    # establecer la semilla aleatoria en el servidor a partir de la que pasó el cliente
     random.seed(s)
 
-    # for all the points requested
+    # para todos los puntos solicitados
     for i in range(n):
-        # compute position of the point
+        # calcular la posición del punto
         x = random.uniform(0.0, 1.0)
         y = random.uniform(0.0, 1.0)
         z = x*x + y*y
         if (z<=1.0):
-            inside = inside + 1    # this point is inside the unit circle
+            inside = inside + 1    # este punto está dentro del círculo de la unidad
 
     return(s, inside)
 
-# dispy calls this function to indicate change in job status
-def job_callback(job): # executed at the client
+# dispy llama a esta función para indicar el cambio en el estado del trabajo
+def job_callback(job): # ejecutado en el cliente
     global pending_jobs, jobs_cond
     global total_inside
 
-    if (job.status == dispy.DispyJob.Finished  # most usual case
+    if (job.status == dispy.DispyJob.Finished  # el caso más común
         or job.status in (dispy.DispyJob.Terminated, dispy.DispyJob.Cancelled,
                           dispy.DispyJob.Abandoned)):
-        # 'pending_jobs' is shared between two threads, so access it with
-        # 'jobs_cond' (see below)
+        # 'pending_jobs' se comparte entre dos hilos, por lo que acceder a él con
+        # 'jobs_cond' (ver abajo)
         jobs_cond.acquire()
-        if job.id: # job may have finished before 'main' assigned id
+        if job.id: # el trabajo puede haber terminado antes de la identificación asignada 'principal'.
             pending_jobs.pop(job.id)
             if (job.id % 1000 == 0):
                 dispy.logger.info('job "%s" returned %s, %s jobs pending', job.id, job.result, len(pending_jobs))
 
-            # extract the results for each job as it happens
-            ran_seed, inside = job.result # returns results from job
-            total_inside += inside        # count the num of points inside quarter circle
+            # extraer los resultados de cada trabajo a medida que sucede
+            ran_seed, inside = job.result # devuelve los resultados del trabajo
+            total_inside += inside        # contar el número de puntos dentro de un cuarto de círculo
 
             if len(pending_jobs) <= lower_bound:
                 jobs_cond.notify()
@@ -63,8 +61,8 @@ def job_callback(job): # executed at the client
 if __name__ == '__main__':
     import dispy, random, argparse, resource, threading, logging, decimal, socket
 
-    # set lower and upper bounds as appropriate
-    # lower_bound is at least num of cpus and upper_bound is roughly 3x lower_bound
+    # establecer límites inferiores y superiores según corresponda
+    # El límite inferior es al menos un número de cpus y el límite superior es aproximadamente 3 veces el límite inferior.
     # lower_bound, upper_bound = 352, 1056
     lower_bound, upper_bound = 32, 96
 
@@ -80,8 +78,8 @@ if __name__ == '__main__':
     no_of_jobs = args.no_of_jobs
     server_nodes ='192.168.1.*'
 
-    # use Condition variable to protect access to pending_jobs, as
-    # 'job_callback' is executed in another thread
+    # usar la variable Condition para proteger el acceso a pending_jobs, como
+    # 'job_callback' es ejecutado en otro hilo.
     jobs_cond = threading.Condition()
 
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -96,16 +94,16 @@ if __name__ == '__main__':
     while i <= no_of_jobs:
         i += 1
 
-        # schedule execution of 'compute' on a node (running 'dispynode')
-        ran_seed = random.randint(0,65535) # define a random seed for each server using the client RNG
+        # programar la ejecución de "computación" en un nodo (ejecutando "dispynode")
+        ran_seed = random.randint(0,65535) # definir una semilla al azar para cada servidor usando el cliente RNG
         job = cluster.submit(ran_seed, no_of_points)
 
         jobs_cond.acquire()
 
-        job.id = i # associate an ID to the job
+        job.id = i # asociar una identificación al trabajo
 
-        # there is a chance the job may have finished and job_callback called by
-        # this time, so put it in 'pending_jobs' only if job is pending
+        # hay una posibilidad de que el trabajo haya terminado y se haya llamado 
+        # a job_callback en este momento, así que ponlo en 'pending_jobs' sólo si el trabajo está pendiente
         if job.status == dispy.DispyJob.Created or job.status == dispy.DispyJob.Running:
             pending_jobs[i] = job
             # dispy.logger.info('job "%s" submitted: %s', i, len(pending_jobs))
@@ -116,9 +114,9 @@ if __name__ == '__main__':
 
     cluster.wait()
 
-    # calclate the estimated value of Pi
+    # calcular el valor estimado de Pi
     total_no_of_points = no_of_points * no_of_jobs
-    decimal.getcontext().prec = 100  # override standard precision
+    decimal.getcontext().prec = 100  # anular la precisión estándar
     Pi = decimal.Decimal(4 * total_inside / total_no_of_points)
     print(('value of Pi is estimated to be %s using %i points' % (Pi, total_no_of_points) ))
 
